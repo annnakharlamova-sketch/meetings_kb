@@ -28,6 +28,12 @@ def load_documents():
 
         meeting = parse_meeting(text)
 
+        print(
+            meeting["title"],
+            "|",
+            meeting["project"]
+        )
+
         for doc in docs:
 
             doc.metadata["date"] = meeting["date"]

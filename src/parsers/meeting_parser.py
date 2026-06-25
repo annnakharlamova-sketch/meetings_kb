@@ -97,7 +97,13 @@ def parse_meeting(text: str):
     )
 
     if project_match:
-        result["project"] = project_match.group(1).strip()
+        project = project_match.group(1).strip()
+
+        # нормализация "пустых" значений
+        if project in ["-", "—", "нет", "N/A", "none", "None"]:
+            result["project"] = None
+        else:
+            result["project"] = project
 
     status_match = re.search(
         r"Статус:\s*(.+)",

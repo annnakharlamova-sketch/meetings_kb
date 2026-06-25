@@ -1,6 +1,51 @@
 from vectorstore import get_vectorstore
 from llm import get_llm
-from filters import parse_filter
+from parsers.filters import build_filters_from_query
+
+def _get_doc_identity(doc):
+    return doc.metadata.get("source") or doc.metadata.get("title") or ""
+
+
+def _find_related_meetings(vectorstore, base_doc, exclude_sources=None, k=3):
+    if base_doc is None:
+        return []
+
+    source_values = set(exclude_sources or [])
+    if not base_doc.page_content:
+        return []
+
+    filters = {}
+    project = base_doc.metadata.get("project")
+    participants = base_doc.metadata.get("participants")
+    topics = base_doc.metadata.get("topics")
+
+    if project:
+        filters["project"] = project
+    elif participants:
+        filters["participants"] = participants
+    elif topics:
+        filters["topics"] = topics
+    else:
+        return []
+
+    results = vectorstore.similarity_search_with_score(
+        base_doc.page_content,
+        k=10,
+        filter=filters
+    )
+
+    related = []
+    for doc, _score in results:
+        identity = _get_doc_identity(doc)
+        if identity in source_values:
+            continue
+        source_values.add(identity)
+        related.append(doc)
+        if len(related) >= k:
+            break
+
+    return related
+
 
 def main():
     vectorstore = get_vectorstore()
@@ -9,25 +54,19 @@ def main():
     while True:
         question = input("\nВаш вопрос: ")
 
-        metadata_filter = parse_filter(question)
-
         if question.lower() in ["exit", "quit"]:
             break
 
-        if metadata_filter:
+        query_filters = build_filters_from_query(question)
 
-            results = vectorstore.similarity_search_with_score(
-                question,
-                k=5,
-                filter=metadata_filter
-            )
+        print("\nФильтры:")
+        print(query_filters)
 
-        else:
-
-            results = vectorstore.similarity_search_with_score(
-                question,
-                k=5
-            )
+        results = vectorstore.similarity_search_with_score(
+            question,
+            k=5,
+            filter=query_filters if query_filters else None
+        )
 
         docs = []
 
@@ -81,6 +120,23 @@ def main():
                 f"{doc.metadata.get('title')} "
                 f"({doc.metadata.get('date')})"
             )
+
+        related_docs = _find_related_meetings(
+            vectorstore,
+            docs[0] if docs else None,
+            exclude_sources=[_get_doc_identity(doc) for doc in docs],
+            k=3,
+        )
+
+        if related_docs:
+            print("\nСвязанные встречи:")
+            for i, doc in enumerate(related_docs, start=1):
+                print(
+                    f"{i}. "
+                    f"{doc.metadata.get('title')} "
+                    f"({doc.metadata.get('date')})"
+                    f" — проект: {doc.metadata.get('project')}"
+                )
 
 
 if __name__ == "__main__":
