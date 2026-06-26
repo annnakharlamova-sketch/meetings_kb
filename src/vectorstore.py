@@ -2,7 +2,7 @@ from pathlib import Path
 
 from langchain_chroma import Chroma
 
-from embeddings import get_embeddings
+from src.embeddings import get_embeddings
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
