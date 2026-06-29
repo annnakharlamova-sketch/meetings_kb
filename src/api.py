@@ -2,19 +2,51 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from langchain_core.documents import Document
-
-from src.parsers.meeting_parser import parse_meeting
 from src.vectorstore import get_vectorstore
-from src.llm import get_llm
+from src.parsers.meeting_parser import parse_meeting
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
+from fastapi.staticfiles import StaticFiles
+from src.services.search_service import search as kb_search
+
+templates = Jinja2Templates(directory="src/templates")
 
 app = FastAPI()
 
-vectorstore = get_vectorstore()
-llm = get_llm()
+app.mount(
+    "/static",
+    StaticFiles(directory="src/static"),
+    name="static"
+)
 
 class MeetingRequest(BaseModel):
     text: str
 
+@app.get("/", response_class=HTMLResponse)
+def home(
+    request: Request,
+    q: str | None = None
+):
+    context = {}
+
+    if q:
+        result = kb_search(q)
+
+        context = {
+            "question": q,
+            "answer": result["answer"],
+            "sources": result["sources"],
+            "related": result["related"],
+        }
+
+    context["request"] = request
+
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context=context
+    )
 
 @app.post("/upload")
 def upload_meeting(request: MeetingRequest):
@@ -34,6 +66,19 @@ def upload_meeting(request: MeetingRequest):
             "topics": ",".join(
                 meeting["topics"]
             ),
+            "tasks": " | ".join(
+                f'{task["assignee"]}: {task["task"]}'
+                for task in meeting["tasks"]
+            ),
+
+            "decisions": " | ".join(
+                meeting["decisions"]
+            ),
+
+            "assignees": ",".join(
+                task["assignee"]
+                for task in meeting["tasks"]
+            ),
             "tasks_count": len(
                 meeting["tasks"]
             ),
@@ -42,6 +87,8 @@ def upload_meeting(request: MeetingRequest):
             )
         }
     )
+    
+    vectorstore = get_vectorstore()
 
     vectorstore.add_documents([doc])
 
@@ -53,41 +100,11 @@ def upload_meeting(request: MeetingRequest):
 @app.get("/search")
 def search(q: str):
 
-    results = vectorstore.similarity_search(
-        q,
-        k=5
-    )
-
-    context = "\n\n".join(
-        doc.page_content
-        for doc in results
-    )
-
-    prompt = f"""
-Ответь на вопрос пользователя только на основе контекста.
-
-Контекст:
-
-{context}
-
-Вопрос:
-
-{q}
-
-Если ответа нет в контексте, так и скажи.
-"""
-
-    response = llm.invoke(prompt)
+    result = kb_search(q)
 
     return {
         "question": q,
-        "answer": response.content,
-        "sources": [
-            {
-                "title": doc.metadata.get("title"),
-                "date": doc.metadata.get("date"),
-                "project": doc.metadata.get("project")
-            }
-            for doc in results
-        ]
+        "answer": result["answer"],
+        "sources": result["sources"],
+        "related": result["related"]
     }

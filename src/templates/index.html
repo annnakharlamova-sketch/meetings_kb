@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AI Knowledge Base</title>
+
+    <link rel="stylesheet"
+          href="/static/style.css">
+
+</head>
+
+<body>
+
+<h1>AI Knowledge Base / Meetings</h1>
+
+<form action="/" method="get">
+
+    <input
+        type="text"
+        name="q"
+        value="{{ question if question else '' }}"
+        placeholder="Введите вопрос..."
+        size="60">
+
+    <button type="submit">
+        Найти
+    </button>
+
+</form>
+
+{% if answer %}
+
+<h2>Ответ</h2>
+
+<p>{{ answer }}</p>
+
+{% endif %}
+
+{% if sources %}
+
+<h2>Источники</h2>
+
+<ul>
+{% for source in sources %}
+<li>
+<b>{{ source.title }}</b>
+({{ source.date }})
+</li>
+{% endfor %}
+</ul>
+
+{% endif %}
+
+{% if related %}
+
+<h2>Связанные встречи</h2>
+
+<ul>
+{% for meeting in related %}
+<li>
+{{ meeting.title }}
+({{ meeting.date }})
+</li>
+{% endfor %}
+</ul>
+
+{% endif %}
+
+</form>
+
+</body>
+</html>

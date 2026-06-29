@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>AI Knowledge Base</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+
+</head>
+
+<body>
+
+<h1>AI Knowledge Base / Meetings</h1>
+
+<form action="/search_page">
+
+    <input
+        type="text"
+        name="q"
+        value="{{ question }}"
+        size="60"
+    >
+
+    <button>Найти</button>
+
+</form>
+
+<hr>
+
+<h2>Ответ</h2>
+
+<p>{{ answer }}</p>
+
+<hr>
+
+<h2>Источники</h2>
+
+{% for doc in sources %}
+
+<div>
+
+<h3>{{ doc.metadata.title }}</h3>
+
+Дата: {{ doc.metadata.date }}<br>
+
+Проект: {{ doc.metadata.project }}
+
+</div>
+
+<hr>
+
+{% endfor %}
+
+</body>
+
+</html>
