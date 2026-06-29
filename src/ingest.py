@@ -52,6 +52,20 @@ def load_documents():
                 meeting["topics"]
             )
 
+            doc.metadata["tasks"] = " | ".join(
+                f'{task["assignee"]}: {task["task"]}'
+                for task in meeting["tasks"]
+            )
+
+            doc.metadata["decisions"] = " | ".join(
+                meeting["decisions"]
+            )
+
+            doc.metadata["assignees"] = ",".join(
+                task["assignee"]
+                for task in meeting["tasks"]
+            )
+
             doc.metadata["tasks_count"] = len(
                 meeting["tasks"]
             )

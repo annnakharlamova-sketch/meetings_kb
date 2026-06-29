@@ -15,46 +15,127 @@ logger = logging.getLogger(__name__)
 def _get_doc_identity(doc):
     return doc.metadata.get("source") or doc.metadata.get("title") or ""
 
+def _intersection_count(a, b):
+    if not a or not b:
+        return 0
 
-def _find_related_meetings(vectorstore, base_doc, exclude_sources=None, k=3):
+    set1 = {
+        x.strip().lower()
+        for x in a.split(",")
+        if x.strip()
+    }
+
+    set2 = {
+        x.strip().lower()
+        for x in b.split(",")
+        if x.strip()
+    }
+
+    return len(set1 & set2)
+
+def _find_related_meetings(
+    vectorstore,
+    base_doc,
+    exclude_sources=None,
+    k=3
+):
     if base_doc is None:
         return []
 
-    source_values = set(exclude_sources or [])
-    if not base_doc.page_content:
-        return []
-
-    filters = {}
-    project = base_doc.metadata.get("project")
-    participants = base_doc.metadata.get("participants")
-    topics = base_doc.metadata.get("topics")
-
-    if project:
-        filters["project"] = project
-    elif participants:
-        filters["participants"] = participants
-    elif topics:
-        filters["topics"] = topics
-    else:
-        return []
-
-    results = vectorstore.similarity_search_with_score(
-        base_doc.page_content,
-        k=10,
-        filter=filters
+    data = vectorstore._collection.get(
+        include=["documents", "metadatas"]
     )
 
-    related = []
-    for doc, _score in results:
-        identity = _get_doc_identity(doc)
-        if identity in source_values:
-            continue
-        source_values.add(identity)
-        related.append(doc)
-        if len(related) >= k:
-            break
+    exclude = set(exclude_sources or [])
 
-    return related
+    related = []
+
+    base = base_doc.metadata
+
+    for document, meta in zip(
+        data["documents"],
+        data["metadatas"]
+    ):
+
+        identity = meta.get("source") or meta.get("title")
+
+        if identity in exclude:
+            continue
+
+        score = 0
+
+        # проект
+        if (
+            base.get("project")
+            and base.get("project") == meta.get("project")
+        ):
+            score += 5
+
+        # участники
+        score += (
+            _intersection_count(
+                base.get("participants", ""),
+                meta.get("participants", "")
+            ) * 3
+        )
+
+        # исполнители
+        score += (
+            _intersection_count(
+                base.get("assignees", ""),
+                meta.get("assignees", "")
+            ) * 2
+        )
+
+        # темы
+        score += (
+            _intersection_count(
+                base.get("topics", ""),
+                meta.get("topics", "")
+            ) * 2
+        )
+
+        # решения
+        if (
+            base.get("decisions")
+            and meta.get("decisions")
+            and any(
+                d in meta["decisions"]
+                for d in base["decisions"].split("|")
+            )
+        ):
+            score += 2
+
+        # поручения
+        if (
+            base.get("tasks")
+            and meta.get("tasks")
+            and any(
+                t in meta["tasks"]
+                for t in base["tasks"].split("|")
+            )
+        ):
+            score += 2
+
+        if score == 0:
+            continue
+
+        related.append(
+            (
+                score,
+                meta
+            )
+        )
+
+    related.sort(
+        reverse=True,
+        key=lambda x: x[0]
+    )
+
+    return [
+        x[1]
+        for x in related[:k]
+    ]
 
 
 def main():
@@ -157,15 +238,6 @@ def main():
         else:
             print("Модель не сослалась ни на один документ.")
 
-        print("\nИсточники:")
-
-        for i, doc in enumerate(docs, start=1):
-            print(
-                f"[DOC{i}] "
-                f"{doc.metadata.get('title')} "
-                f"({doc.metadata.get('date')})"
-            )
-
         related_docs = _find_related_meetings(
             vectorstore,
             docs[0] if docs else None,
@@ -175,12 +247,12 @@ def main():
 
         if related_docs:
             print("\nСвязанные встречи:")
-            for i, doc in enumerate(related_docs, start=1):
+            for i, meta in enumerate(related_docs, start=1):
                 print(
                     f"{i}. "
-                    f"{doc.metadata.get('title')} "
-                    f"({doc.metadata.get('date')})"
-                    f" — проект: {doc.metadata.get('project')}"
+                    f"{meta.get('title')} "
+                    f"({meta.get('date')})"
+                    f" — проект: {meta.get('project')}"
                 )
 
 if __name__ == "__main__":
