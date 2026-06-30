@@ -238,19 +238,19 @@ GET /search?q=CRM
 
 ## Реализованные возможности MVP
 
-* ✔ Автоматический парсинг протоколов
-* ✔ Извлечение метаданных
-* ✔ Индексация документов
-* ✔ Semantic Search
-* ✔ Keyword Search
-* ✔ Hybrid Search
-* ✔ Metadata Filters
-* ✔ RAG
-* ✔ Citations
-* ✔ Related Meetings
-* ✔ REST API
-* ✔ Web-интерфейс
-* ✔ iframe-ready
+* Автоматический парсинг протоколов
+* Извлечение метаданных
+* Индексация документов
+* Semantic Search
+* Keyword Search
+* Hybrid Search
+* Metadata Filters
+* RAG
+* Citations
+* Related Meetings
+* REST API
+* Web-интерфейс
+* iframe-ready
 
 ---
 
